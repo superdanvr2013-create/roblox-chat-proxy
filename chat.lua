@@ -2,7 +2,7 @@ local Players = game:GetService("Players")
 local HttpService = game:GetService("HttpService")
 
 local player = Players.LocalPlayer
-local API_URL = "local API_URL = "https://roblox-chat-proxy-jet.vercel.app/chat""
+local API_URL = "local API_URL = "https://robloxchat.vercel.app/chat"
 local TOKEN = "d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c3d5"
 
 local sessionId = game.JobId ~= "" and game.JobId or "STUDIO_" .. player.UserId
@@ -148,16 +148,9 @@ local function addMessage(txt)
     scroll.CanvasPosition = Vector2.new(0, scroll.AbsoluteCanvasSize.Y)
 end
 
--- Замените начало скрипта на это:
-local httpRequest = (request or http_request or syn and syn.request)
-
-if not httpRequest then
-    warn("Критическая ошибка: Ваш эксплойт не поддерживает HTTP запросы (request не найден)")
-end
-
 local function apiCall(msg)
-    if not httpRequest then return end -- Защита от вызова nil
-    
+    local httpRequest = (syn and syn.request) or (http and http.request) or request
+    if not httpRequest then return end
     local isPolling = (msg == "")
     
     task.defer(function()
@@ -168,10 +161,9 @@ local function apiCall(msg)
             Question = isPolling and "POLLING" or tostring(msg),
             Recipient = "GlobalChat"
         }
-        
         local success, response = pcall(function()
             return httpRequest({
-                Url = "https://robloxchat.vercel.app/chat", -- Ссылка на Vercel
+                Url = API_URL,
                 Method = "POST",
                 Headers = {
                     ["Content-Type"] = "application/json",
@@ -180,7 +172,6 @@ local function apiCall(msg)
                 Body = HttpService:JSONEncode(payload)
             })
         end)
-        
         if success and response and response.StatusCode == 200 then
             local res = HttpService:JSONDecode(response.Body)
             if res.status == "success" and res.data then
@@ -188,8 +179,6 @@ local function apiCall(msg)
                     addMessage(text)
                 end
             end
-        elseif not success then
-            warn("Ошибка выполнения запроса: " .. tostring(response))
         end
     end)
 end
