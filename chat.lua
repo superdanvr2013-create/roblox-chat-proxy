@@ -1,11 +1,8 @@
 local Players = game:GetService("Players")
 local HttpService = game:GetService("HttpService")
-local TextChatService = game:GetService("TextChatService")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local player = Players.LocalPlayer
--- URL из твоего файла. Если нужно старый, поменяй на "https://asvego.ru/roblox/chat.php"
-local API_URL = "https://roblox-chat-proxy-jet.vercel.app/chat" 
+local API_URL = "https://roblox-chat-proxy-jet.vercel.app/chat"
 local TOKEN = "d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c3d5"
 
 local sessionId = game.JobId ~= "" and game.JobId or "STUDIO_" .. player.UserId
@@ -38,7 +35,7 @@ titleBar.BorderSizePixel = 0
 local title = Instance.new("TextLabel", titleBar)
 title.Size = UDim2.new(1, -40, 1, 0)
 title.Position = UDim2.new(0, 10, 0, 0)
-title.Text = "GLOBAL + RBX CHAT"
+title.Text = "GLOBAL CHAT"
 title.TextColor3 = Color3.new(1, 1, 1)
 title.BackgroundTransparency = 1
 title.TextXAlignment = Enum.TextXAlignment.Left
@@ -87,7 +84,7 @@ local input = Instance.new("TextBox", contentFrame)
 input.Size = UDim2.new(1, -75, 0, 30)
 input.Position = UDim2.new(0, 5, 1, -35)
 input.PlaceholderText = "Enter a message..."
-input.Text = "" 
+input.Text = "" -- ЯВНО обнуляем текст, чтобы не было надписи "TextBox"
 input.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
 input.TextColor3 = Color3.new(1, 1, 1)
 input.TextSize = 16
@@ -135,13 +132,12 @@ toggleBtn.MouseButton1Click:Connect(function()
     end
 end)
 
--- Обновленная функция addMessage с поддержкой ЦВЕТА
-local function addMessage(txt, color)
+local function addMessage(txt)
     local lbl = Instance.new("TextLabel", scroll)
     lbl.Size = UDim2.new(1, -10, 0, 0)
     lbl.AutomaticSize = Enum.AutomaticSize.Y
     lbl.Text = " " .. txt
-    lbl.TextColor3 = color or Color3.new(1, 1, 1) -- Если цвет не передан, будет белый
+    lbl.TextColor3 = Color3.new(1, 1, 1)
     lbl.BackgroundTransparency = 1
     lbl.TextXAlignment = Enum.TextXAlignment.Left
     lbl.TextWrapped = true
@@ -149,60 +145,8 @@ local function addMessage(txt, color)
     lbl.Font = Enum.Font.SourceSans
     
     task.wait(0.1)
-    if scroll then
-        scroll.CanvasPosition = Vector2.new(0, scroll.AbsoluteCanvasSize.Y)
-    end
+    scroll.CanvasPosition = Vector2.new(0, scroll.AbsoluteCanvasSize.Y)
 end
-
--- ==================================================
--- ФУНКЦИИ ИНТЕГРАЦИИ С ROBLOX
--- ==================================================
-
--- 1. Отправка в системный чат Роблокса
-local function sendToRobloxChat(msg)
-    if TextChatService.ChatVersion == Enum.ChatVersion.TextChatService then
-        -- Новый чат
-        local channel = TextChatService.TextChannels:FindFirstChild("RBXGeneral")
-        if channel then
-            channel:SendAsync(msg)
-        end
-    else
-        -- Старый чат
-        local defaultChat = ReplicatedStorage:FindFirstChild("DefaultChatSystemChatEvents")
-        if defaultChat then
-            local sayEvent = defaultChat:FindFirstChild("SayMessageRequest")
-            if sayEvent then
-                sayEvent:FireServer(msg, "All")
-            end
-        end
-    end
-end
-
--- 2. Прослушка сообщений других игроков
-local function setupChatListener()
-    if TextChatService.ChatVersion == Enum.ChatVersion.TextChatService then
-        TextChatService.MessageReceived:Connect(function(textChatMessage)
-            local sender = textChatMessage.TextSource and textChatMessage.TextSource.Name or "System"
-            -- Игнорируем свои сообщения, чтобы не двоилось (мы их добавляем локально)
-            if sender ~= player.Name then
-                addMessage("[RBX] " .. sender .. ": " .. textChatMessage.Text, Color3.fromRGB(180, 180, 180))
-            end
-        end)
-    else
-        -- Для старых игр
-        local function hookPlayer(p)
-            p.Chatted:Connect(function(msg)
-                if p ~= player then
-                    addMessage("[RBX] " .. p.Name .. ": " .. msg, Color3.fromRGB(180, 180, 180))
-                end
-            end)
-        end
-        for _, p in pairs(Players:GetPlayers()) do hookPlayer(p) end
-        Players.PlayerAdded:Connect(hookPlayer)
-    end
-end
-
--- ==================================================
 
 local function apiCall(msg)
     local httpRequest = (syn and syn.request) or (http and http.request) or request
@@ -232,7 +176,6 @@ local function apiCall(msg)
             local res = HttpService:JSONDecode(response.Body)
             if res.status == "success" and res.data then
                 for _, text in ipairs(res.data) do
-                    -- Сообщения из глобального чата остаются белыми
                     addMessage(text)
                 end
             end
@@ -244,23 +187,13 @@ btn.MouseButton1Click:Connect(function()
     if tick() - lastSendTick < cooldownTime then return end
     
     local text = input.Text
-    if text ~= "" and text ~= "TextBox" then
-        -- 1. Отображаем у себя
+    if text ~= "" and text ~= "TextBox" then -- Доп. проверка
         addMessage(player.Name .. ": " .. text)
-        
-        -- 2. Отправляем в базу (Глобал)
         apiCall(text)
-        
-        -- 3. Отправляем в игру (Роблокс)
-        sendToRobloxChat(text)
-        
         input.Text = ""
         startCooldown()
     end
 end)
-
--- Запуск прослушки чата
-setupChatListener()
 
 task.spawn(function()
     warn("[Xeno] Chat Started Successfully")
