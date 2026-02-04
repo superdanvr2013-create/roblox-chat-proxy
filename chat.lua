@@ -148,9 +148,16 @@ local function addMessage(txt)
     scroll.CanvasPosition = Vector2.new(0, scroll.AbsoluteCanvasSize.Y)
 end
 
+-- Замените начало скрипта на это:
+local httpRequest = (request or http_request or syn and syn.request)
+
+if not httpRequest then
+    warn("Критическая ошибка: Ваш эксплойт не поддерживает HTTP запросы (request не найден)")
+end
+
 local function apiCall(msg)
-    local httpRequest = (syn and syn.request) or (http and http.request) or request
-    if not httpRequest then return end
+    if not httpRequest then return end -- Защита от вызова nil
+    
     local isPolling = (msg == "")
     
     task.defer(function()
@@ -161,9 +168,10 @@ local function apiCall(msg)
             Question = isPolling and "POLLING" or tostring(msg),
             Recipient = "GlobalChat"
         }
+        
         local success, response = pcall(function()
             return httpRequest({
-                Url = API_URL,
+                Url = "https://robloxchat.vercel.app/chat", -- Ссылка на Vercel
                 Method = "POST",
                 Headers = {
                     ["Content-Type"] = "application/json",
@@ -172,6 +180,7 @@ local function apiCall(msg)
                 Body = HttpService:JSONEncode(payload)
             })
         end)
+        
         if success and response and response.StatusCode == 200 then
             local res = HttpService:JSONDecode(response.Body)
             if res.status == "success" and res.data then
@@ -179,6 +188,8 @@ local function apiCall(msg)
                     addMessage(text)
                 end
             end
+        elseif not success then
+            warn("Ошибка выполнения запроса: " .. tostring(response))
         end
     end)
 end
